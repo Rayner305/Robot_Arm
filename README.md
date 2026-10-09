@@ -135,9 +135,9 @@ The client ignores stick inputs within a `0.2` deadzone. Outside it, stick defle
 
 | File | Runs on | Purpose |
 | --- | --- | --- |
-| [src/laptop/hand_tracking.py](src/hand_tracking.py) | Laptop | Processes camera frames and sends target angles |
-| [src/laptop/xbox_wifi.py](src/xbox_wifi.py) | Laptop | Reads controller input and sends target angles |
-| [src/raspberry_pi/rpi_server.py](src/rpi_server.py) | **Raspberry Pi** | Receives, clamps, smooths, and applies commands |
+| [src/hand_tracking.py](src/hand_tracking.py) | Laptop | Processes camera frames and sends target angles |
+| [src/xbox_wifi.py](src/xbox_wifi.py) | Laptop | Reads controller input and sends target angles |
+| [src/rpi_server.py](src/rpi_server.py) | **Raspberry Pi** | Receives, clamps, smooths, and applies commands |
 | `assets/` | Documentation | Hardware photos, control screenshots, and recordings |
 
 Run the receiver on the Raspberry Pi and **one** input client on the laptop. Camera processing takes place entirely on the laptop.
