@@ -145,6 +145,13 @@ The client ignores stick inputs within a `0.2` deadzone. Outside it, stick defle
 
 Run the receiver on the Raspberry Pi and **one** input client on the PC. Camera processing takes place entirely on the PC.
 
+### Documented operating environment
+
+| Device | Operating system | Python version |
+| --- | --- | --- |
+| PC | Windows | 3.9.13 |
+| Raspberry Pi | Raspberry Pi OS (Linux) | Not recorded |
+
 ### Install dependencies
 
 Run the commands below from the repository root, using a separate Python environment on each device.
