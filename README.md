@@ -1,8 +1,8 @@
-# Wireless Robotic Arm Control
+# Robotic Arm Control with Hand Tracking and Controller Input
 
 I built this system to control a six-servo robotic arm in two ways: with an Xbox controller or with one hand in front of a webcam. Both methods run on a laptop and send motor commands over Wi-Fi to a Raspberry Pi, which controls the arm through a PCA9685 servo driver.
 
-The system has been assembled, tested, and used on the physical arm. The recordings below show both control methods in operation.
+The system has been assembled, tested, and used on the physical arm with the original receiver, `rpi_server.py`. The recordings below show both control methods in operation. A newer receiver, `rpi_safe_server.py`, adds a command timeout and return-to-standby behavior; this version has not yet been tested on the physical arm.
 
 ![Robotic arm and its control hardware](assets/system-overview.png)
 
@@ -63,7 +63,7 @@ The assembly and system drawings illustrate the components; they are not dimensi
 
 ### Raspberry Pi 4 Model B
 
-The Raspberry Pi runs `rpi_server.py`. It receives the laptop's commands and sends the resulting angles to the servo driver.
+The Raspberry Pi runs the receiver: the hardware-tested `rpi_server.py`, or the experimental `rpi_safe_server.py`. It receives the laptop's commands and sends the resulting angles to the servo driver.
 
 <img src="assets/raspberry-pi.jpg" alt="Raspberry Pi 4 Model B" width="420">
 
@@ -135,9 +135,10 @@ The client ignores stick inputs within a `0.2` deadzone. Outside it, stick defle
 
 | File | Runs on | Purpose |
 | --- | --- | --- |
-| [src/hand_tracking.py](src/hand_tracking.py) | Laptop | Processes camera frames and sends target angles |
-| [src/xbox_wifi.py](src/xbox_wifi.py) | Laptop | Reads controller input and sends target angles |
-| [src/rpi_server.py](src/rpi_server.py) | **Raspberry Pi** | Receives, clamps, smooths, and applies commands |
+| [src/pc/hand_tracking.py](src/pc/hand_tracking.py) | Laptop | Processes camera frames and sends target angles |
+| [src/pc/xbox_wifi.py](src/pc/xbox_wifi.py) | Laptop | Reads controller input and sends target angles |
+| [src/raspberry_pi/rpi_server.py](src/raspberry_pi/rpi_server.py) | **Raspberry Pi** | Receives, clamps, smooths, and applies commands |
+| [src/raspberry_pi/rpi_safe_server.py](src/raspberry_pi/rpi_safe_server.py) | **Raspberry Pi** | Experimental receiver with a 20-second command timeout; not hardware-tested |
 | `assets/` | Documentation | Hardware photos, control screenshots, and recordings |
 
 Run the receiver on the Raspberry Pi and **one** input client on the laptop. Camera processing takes place entirely on the laptop.
@@ -149,10 +150,10 @@ Run the commands below from the repository root, using a separate Python environ
 On the **laptop**:
 
 ```bash
-python -m pip install -r src/laptop/requirements.txt
+python -m pip install mediapipe==0.10.21 opencv-contrib-python==4.11.0.86 pygame==2.6.1
 ```
 
-The laptop requirements retain the project's pinned MediaPipe, OpenCV-contrib, and Pygame versions. OpenCV-contrib provides `cv2`; installing a second OpenCV package into the same environment is unnecessary. The camera code uses the MediaPipe `mp.solutions.holistic` API.
+These are the project's pinned MediaPipe, OpenCV-contrib, and Pygame versions. OpenCV-contrib provides `cv2`. The current `src/pc/requirements.txt` also lists `opencv-python`; the explicit command above selects only OpenCV-contrib for a clean environment. The camera code uses the MediaPipe `mp.solutions.holistic` API.
 
 On the **Raspberry Pi**:
 
@@ -166,7 +167,7 @@ Enable I²C on the Pi and connect the PCA9685 before starting the receiver. The 
 
 1. Connect the laptop and Raspberry Pi to the same local network.
 2. Replace `YOUR_RPI_IP` in the selected laptop client with the Pi's address. Both clients and the receiver use UDP port `5005`; the network must allow this traffic.
-3. Start the receiver **on the Raspberry Pi**:
+3. Start the hardware-tested receiver **on the Raspberry Pi**:
 
    ```bash
    python3 src/raspberry_pi/rpi_server.py
@@ -175,28 +176,47 @@ Enable I²C on the Pi and connect the PCA9685 before starting the receiver. The 
 4. Start **one client on the laptop**:
 
    ```bash
-   python src/laptop/hand_tracking.py
+   python src/pc/hand_tracking.py
    ```
 
    or:
 
    ```bash
-   python src/laptop/xbox_wifi.py
+   python src/pc/xbox_wifi.py
    ```
 
 For camera control, keep the hand and face visible so the hand landmarks and nose reference can be detected. For controller input, connect the controller to the laptop before starting the client.
 
+### Receiver versions and testing status
+
+| Receiver | Hardware testing | Behavior when commands stop |
+| --- | --- | --- |
+| `rpi_server.py` | Tested with both input methods | Retains the last commanded angles |
+| `rpi_safe_server.py` | Not yet tested on the physical arm | After 20 seconds without incoming commands, gradually moves the commanded angles toward standby |
+
+To evaluate the experimental receiver on the Raspberry Pi, run it **instead of** the original receiver:
+
+```bash
+python3 src/raspberry_pi/rpi_safe_server.py
+```
+
+Run only one receiver at a time; both use UDP port `5005`.
+
+The experimental receiver uses `TIMEOUT_LIMIT = 20.0`. Its standby targets are 90° for `M1`–`M5` and 45° for `M0`. This is a return to configured target angles, rather than a return to the arm's previous position. The return motion and the suitability of the standby pose still require hardware validation.
+
 ### Starting and stopping
 
-On startup, the receiver commands `M1`–`M5` to `90°` and `M0` to `45°`.
+On startup, both receivers command `M1`–`M5` to 90° and `M0` to 45°.
 
-Pressing `Ctrl+C` in the Xbox client sends a gradual sequence of commands back to those standby angles. This depends on the laptop and Pi remaining connected. Pressing `Q` closes the camera client without a parking sequence.
+Pressing `Ctrl+C` in the controller client sends a gradual sequence of commands toward those standby angles. This depends on the PC and Pi remaining connected. Pressing `Q` closes the camera client without sending a parking sequence.
 
-The camera sends commands only when both the selected hand and pose landmarks are detected. If tracking or communication stops, the receiver retains the last servo commands. The current receiver has no connection-loss timeout or automatic return routine.
+The camera sends commands only when both the selected hand and pose landmarks are detected. With the original receiver, a loss of tracking or communication leaves the last servo commands unchanged. With the experimental receiver, a 20-second gap in commands triggers the standby targets, including when tracking is lost or the camera client is closed while the network remains available.
+
+The experimental receiver continues listening after setting standby targets and accepts new commands when they arrive. Its `is_parked` flag indicates that standby targets have been selected; it does not confirm that the physical arm has reached them. Neither receiver measures actual joint positions.
 
 ## Mathematical Concepts & Algorithms
 
-These calculations are implemented in `hand_tracking.py` and `rpi_server.py`. They convert tracked landmarks into joint targets, then limit and smooth the commands sent to the servos.
+These calculations are implemented in `hand_tracking.py` and the Raspberry Pi receivers. They convert tracked landmarks into joint targets, then limit and smooth the commands sent to the servos.
 
 ### 1. Euclidean distance between landmarks
 
@@ -276,7 +296,7 @@ Landmarks `17` and `20` are the pinky base and tip. This comparison selects the 
 
 ### 4. Exponential smoothing
 
-In `rpi_server.py`, each received target is first clamped and then used to update the commanded angle:
+Both receivers clamp target angles and apply the following update to the commanded angle:
 
 $$
 \theta_{k+1}=\theta_k+\alpha(\theta_{\mathrm{target}}-\theta_k)
@@ -293,4 +313,6 @@ A smaller $\alpha$ changes the command more gradually; a larger value responds f
 | M1 — Wrist rotation | 0°–180° | 0.20 |
 | M0 — Gripper | 0°–90° | 0.35 |
 
-Each update happens when a packet arrives, so the packet rate affects the response over time. The stored angle is the last software command, not a measured joint position. Smoothing softens command changes, while the condition of the servos and mechanical parts still affects physical stability.
+In the original `rpi_server.py`, smoothing updates happen when a packet arrives. In `rpi_safe_server.py`, the receiver retains the latest targets and continues smoothing when a receive attempt times out, using a socket timeout of 0.02 seconds. This is not a fixed-rate control loop: packet arrival and processing time affect the update rate.
+
+The stored angle is the last software command, not a measured joint position. Smoothing softens command changes, while the condition of the servos and mechanical parts still affects physical stability.
