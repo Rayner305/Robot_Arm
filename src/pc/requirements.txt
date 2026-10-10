@@ -2,5 +2,3 @@ mediapipe==0.10.21
 opencv_contrib_python==4.11.0.86
 opencv_python==5.0.0.93
 pygame==2.6.1
-#on raspberry pi
-adafruit-circuitpython-servokit
