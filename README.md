@@ -75,7 +75,9 @@ The PCA9685 provides the PWM outputs used to command the servos. Six of its chan
 
 ### External power supply
 
-The DC supply powers the servo rail. The Raspberry Pi uses a separate power input, so the six servos are not powered through the Pi.
+The assembled system used a 5 V, 10 A DC supply (50 W) for the servo rail. The Raspberry Pi uses a separate power input, so the six servos are not powered through the Pi.
+
+For a future build, a regulated 5 V supply rated for 12–15 A is a proposed upgrade to provide more current headroom when multiple servos move under load. This upgrade has not been tested on this arm. The higher figure refers to current capacity, not a higher supply voltage; the required capacity depends on the load and simultaneous servo activity.
 
 <img src="assets/power-supply.jpg" alt="External DC power supply" width="420">
 
@@ -150,10 +152,10 @@ Run the commands below from the repository root, using a separate Python environ
 On the **PC**:
 
 ```bash
-python -m pip install mediapipe==0.10.21 opencv-contrib-python==4.11.0.86 pygame==2.6.1
+python -m pip install -r src/pc/requirements.txt
 ```
 
-These are the project's pinned MediaPipe, OpenCV-contrib, and Pygame versions. OpenCV-contrib provides `cv2`. The current `src/pc/requirements.txt` also lists `opencv-python`; the explicit command above selects only OpenCV-contrib for a clean environment. The camera code uses the MediaPipe `mp.solutions.holistic` API.
+The PC requirements pin MediaPipe, OpenCV-contrib, and Pygame. OpenCV-contrib provides `cv2`, so a second OpenCV package is not needed. The camera code uses the MediaPipe `mp.solutions.holistic` API.
 
 On the **Raspberry Pi**:
 
@@ -201,6 +203,8 @@ python3 src/raspberry_pi/rpi_safe_server.py
 ```
 
 Run only one receiver at a time; both use UDP port `5005`.
+
+The experimental receiver ignores messages that are not JSON objects, contain invalid values for known motors, or contain no recognized motor commands. Accepted angles must be finite numbers; invalid packets do not replace the targets or reset the command timeout.
 
 The experimental receiver uses `TIMEOUT_LIMIT = 20.0`. Its standby targets are 90° for `M1`–`M5` and 45° for `M0`. This is a return to configured target angles, rather than a return to the arm's previous position. The return motion and the suitability of the standby pose still require hardware validation.
 

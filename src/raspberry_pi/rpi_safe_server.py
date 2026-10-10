@@ -1,7 +1,7 @@
 import socket
 import json
 import time
-import sys
+import math
 from adafruit_servokit import ServoKit
 
 # --- Hardware Setup ---
@@ -40,11 +40,36 @@ TIMEOUT_LIMIT = 20.0
 is_parked = True
 payload = {"m5": 90, "m4": 90, "m3": 90, "m2": 90, "m1": 90, "m0": 45}
 
+def validate_payload(message):
+    """Accept only finite numeric angles for known motors."""
+    if not isinstance(message, dict):
+        raise ValueError("Motor commands must be a JSON object")
+
+    commands = {}
+    for key, angle in message.items():
+        if key not in motors:
+            continue
+        if isinstance(angle, bool) or not isinstance(angle, (int, float)):
+            raise ValueError(f"Invalid angle for {key}")
+        try:
+            angle = float(angle)
+        except (OverflowError, ValueError):
+            raise ValueError(f"Invalid angle for {key}") from None
+        if not math.isfinite(angle):
+            raise ValueError(f"Invalid angle for {key}")
+        commands[key] = angle
+
+    if not commands:
+        raise ValueError("No recognized motor commands")
+    return commands
+
+
 # --- Main Loop ---
 while True:
     try:
         data, addr = sock.recvfrom(1024)
-        payload = json.loads(data.decode('utf-8'))
+        commands = validate_payload(json.loads(data.decode('utf-8')))
+        payload = commands
         
         if is_parked:
             print("Connection established! Arm is active.")
@@ -62,8 +87,8 @@ while True:
             # Uncomment the next line if you want the script to completely close!
             # break 
             
-    except json.JSONDecodeError:
-        pass
+    except (ValueError, UnicodeDecodeError):
+        pass  # Invalid packets must not replace targets or reset the timeout
     except Exception as e:
         print(f"Error: {e}")
         pass
