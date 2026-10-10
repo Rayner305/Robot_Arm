@@ -1,6 +1,6 @@
 # Robotic Arm Control with Hand Tracking and Controller Input
 
-I built this system to control a six-servo robotic arm in two ways: with an Xbox controller or with one hand in front of a webcam. Both methods run on a laptop and send motor commands over Wi-Fi to a Raspberry Pi, which controls the arm through a PCA9685 servo driver.
+I built this system to control a six-servo robotic arm in two ways: with an Xbox controller or with one hand in front of a webcam. Both methods run on a PC and send motor commands over Wi-Fi to a Raspberry Pi, which controls the arm through a PCA9685 servo driver.
 
 The system has been assembled, tested, and used on the physical arm with the original receiver, `rpi_server.py`. The recordings below show both control methods in operation. A newer receiver, `rpi_safe_server.py`, adds a command timeout and return-to-standby behavior; this version has not yet been tested on the physical arm.
 
@@ -34,22 +34,22 @@ The GIFs show selected excerpts of the arm in operation.
 
 ## How the system is arranged
 
-The laptop reads the input, calculates six target angles, and sends them as JSON messages over UDP on port `5005`. The Raspberry Pi receives the angles, limits them to the configured ranges, smooths the changes, and updates the PCA9685 over I²C.
+The PC reads the input, calculates six target angles, and sends them as JSON messages over UDP on port `5005`. The Raspberry Pi receives the angles, limits them to the configured ranges, smooths the changes, and updates the PCA9685 over I²C.
 
-Camera processing runs on the laptop to keep OpenCV and MediaPipe inference off the Raspberry Pi. This leaves the Pi responsible for receiving commands and controlling the servos.
+Camera processing runs on the PC to keep OpenCV and MediaPipe inference off the Raspberry Pi. This leaves the Pi responsible for receiving commands and controlling the servos.
 
-The Xbox controller had previously worked while connected directly to the Raspberry Pi. When setting it up in the lab, the number of nearby Bluetooth devices made finding and pairing the controller difficult. Moving the controller input to the laptop allowed both input methods to use the same Wi-Fi receiver on the Pi.
+The Xbox controller had previously worked while connected directly to the Raspberry Pi. When setting it up in the lab, the number of nearby Bluetooth devices made finding and pairing the controller difficult. Moving the controller input to the PC allowed both input methods to use the same Wi-Fi receiver on the Pi.
 
 ```mermaid
 flowchart TD
-    H["Camera client · Laptop"] -->|UDP / JSON| R["Receiver · Raspberry Pi"]
-    X["Xbox client · Laptop"] -->|UDP / JSON| R
+    H["Camera client · PC"] -->|UDP / JSON| R["Receiver · Raspberry Pi"]
+    X["Xbox client · PC"] -->|UDP / JSON| R
     R -->|I2C commands| D["PCA9685 driver"]
     P["External DC supply"] -->|Servo power| D
     D -->|PWM and servo power| M["Six MG996R servos"]
 ```
 
-Only one laptop client runs at a time. UDP carries target angles without delivery acknowledgements; the receiver does not send measured joint positions back to the laptop.
+Only one PC client runs at a time. UDP carries target angles without delivery acknowledgements; the receiver does not send measured joint positions back to the PC.
 
 ## Hardware
 
@@ -63,7 +63,7 @@ The assembly and system drawings illustrate the components; they are not dimensi
 
 ### Raspberry Pi 4 Model B
 
-The Raspberry Pi runs the receiver: the hardware-tested `rpi_server.py`, or the experimental `rpi_safe_server.py`. It receives the laptop's commands and sends the resulting angles to the servo driver.
+The Raspberry Pi runs the receiver: the hardware-tested `rpi_server.py`, or the experimental `rpi_safe_server.py`. It receives the PC's commands and sends the resulting angles to the servo driver.
 
 <img src="assets/raspberry-pi.jpg" alt="Raspberry Pi 4 Model B" width="420">
 
@@ -79,7 +79,7 @@ The DC supply powers the servo rail. The Raspberry Pi uses a separate power inpu
 
 <img src="assets/power-supply.jpg" alt="External DC power supply" width="420">
 
-The remaining equipment is a laptop, a webcam, an Xbox controller, and a shared Wi-Fi network.
+The remaining equipment is a PC, a webcam, an Xbox controller, and a shared Wi-Fi network.
 
 ## Controlling six motors with one hand
 
@@ -135,19 +135,19 @@ The client ignores stick inputs within a `0.2` deadzone. Outside it, stick defle
 
 | File | Runs on | Purpose |
 | --- | --- | --- |
-| [src/pc/hand_tracking.py](src/pc/hand_tracking.py) | Laptop | Processes camera frames and sends target angles |
-| [src/pc/xbox_wifi.py](src/pc/xbox_wifi.py) | Laptop | Reads controller input and sends target angles |
+| [src/pc/hand_tracking.py](src/pc/hand_tracking.py) | PC | Processes camera frames and sends target angles |
+| [src/pc/xbox_wifi.py](src/pc/xbox_wifi.py) | PC | Reads controller input and sends target angles |
 | [src/raspberry_pi/rpi_server.py](src/raspberry_pi/rpi_server.py) | **Raspberry Pi** | Receives, clamps, smooths, and applies commands |
 | [src/raspberry_pi/rpi_safe_server.py](src/raspberry_pi/rpi_safe_server.py) | **Raspberry Pi** | Experimental receiver with a 20-second command timeout; not hardware-tested |
 | `assets/` | Documentation | Hardware photos, control screenshots, and recordings |
 
-Run the receiver on the Raspberry Pi and **one** input client on the laptop. Camera processing takes place entirely on the laptop.
+Run the receiver on the Raspberry Pi and **one** input client on the PC. Camera processing takes place entirely on the PC.
 
 ### Install dependencies
 
 Run the commands below from the repository root, using a separate Python environment on each device.
 
-On the **laptop**:
+On the **PC**:
 
 ```bash
 python -m pip install mediapipe==0.10.21 opencv-contrib-python==4.11.0.86 pygame==2.6.1
@@ -165,15 +165,15 @@ Enable I²C on the Pi and connect the PCA9685 before starting the receiver. The 
 
 ### Configure and run
 
-1. Connect the laptop and Raspberry Pi to the same local network.
-2. Replace `YOUR_RPI_IP` in the selected laptop client with the Pi's address. Both clients and the receiver use UDP port `5005`; the network must allow this traffic.
+1. Connect the PC and Raspberry Pi to the same local network.
+2. Replace `YOUR_RPI_IP` in the selected PC client with the Pi's address. Both clients and the receiver use UDP port `5005`; the network must allow this traffic.
 3. Start the hardware-tested receiver **on the Raspberry Pi**:
 
    ```bash
    python3 src/raspberry_pi/rpi_server.py
    ```
 
-4. Start **one client on the laptop**:
+4. Start **one client on the PC**:
 
    ```bash
    python src/pc/hand_tracking.py
@@ -185,7 +185,7 @@ Enable I²C on the Pi and connect the PCA9685 before starting the receiver. The 
    python src/pc/xbox_wifi.py
    ```
 
-For camera control, keep the hand and face visible so the hand landmarks and nose reference can be detected. For controller input, connect the controller to the laptop before starting the client.
+For camera control, keep the hand and face visible so the hand landmarks and nose reference can be detected. For controller input, connect the controller to the PC before starting the client.
 
 ### Receiver versions and testing status
 
