@@ -150,7 +150,7 @@ Run the receiver on the Raspberry Pi and **one** input client on the PC. Camera 
 | Device | Operating system | Python version |
 | --- | --- | --- |
 | PC | Windows | 3.9.13 |
-| Raspberry Pi | Raspberry Pi OS (Linux) | Not recorded |
+| Raspberry Pi | Raspberry Pi OS (Linux) | 3.11 |
 
 ### Install dependencies
 
